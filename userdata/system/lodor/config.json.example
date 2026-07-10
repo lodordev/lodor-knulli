@@ -1,0 +1,13 @@
+{
+  "hosts": [
+    {
+      "root_uri": "https://romm.example.com",
+      "port": 0,
+      "token": "PASTE_A_ROMM_CLIENT_TOKEN_HERE",
+      "device_name": "KNULLI"
+    }
+  ],
+  "directory_mappings": {},
+  "api_timeout": 30,
+  "download_timeout": 3600
+}

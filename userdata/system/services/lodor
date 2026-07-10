@@ -1,0 +1,41 @@
+#!/bin/sh
+# /userdata/system/services/lodor - Knulli (Batocera-family) user service for Lodor.
+#  MARKER: LODOR_SERVICE
+#
+# Batocera's batocera-services runs every ENABLED file in /userdata/system/services/ with
+# a positional verb: "start" at boot, "stop" at shutdown (S99userservices semantics; the
+# same surface the knulli-tailscale project uses). Enable it in ES: Main Menu -> System
+# Settings -> Services -> lodor, or run `batocera-services enable lodor` once - the Ports
+# Lodor.sh entry also self-heals this on first open.
+#
+# start = ensure the configgen hook is executable (configgen SILENTLY skips a non-+x
+# script - the single most likely broken-install symptom) + launch the charging-gated
+# save-sync daemon, DETACHED so boot is never delayed. stop = kill the daemon.
+
+APPDIR="${LODOR_APPDIR:-/userdata/system/lodor}"
+PIDF="/tmp/lodor-syncd.pid"
+
+case "${1:-}" in
+	start)
+		chmod +x /userdata/system/scripts/lodor-hook.sh 2>/dev/null
+		chmod +x "$APPDIR/lodor-sync" "$APPDIR/lodor-wizard" \
+		         "$APPDIR/bin/"* "$APPDIR/bin/tailscale/"* 2>/dev/null
+		if [ -x "$APPDIR/bin/romm-syncd" ]; then
+			# already running? (stale pidfile from a crash is reaped here)
+			if [ -f "$PIDF" ] && kill -0 "$(cat "$PIDF" 2>/dev/null)" 2>/dev/null; then
+				exit 0
+			fi
+			"$APPDIR/bin/romm-syncd" >/dev/null 2>&1 &
+			echo $! > "$PIDF"
+		fi
+		;;
+	stop)
+		[ -f "$PIDF" ] && kill "$(cat "$PIDF" 2>/dev/null)" 2>/dev/null
+		rm -f "$PIDF"
+		;;
+	restart)
+		"$0" stop
+		"$0" start
+		;;
+esac
+exit 0

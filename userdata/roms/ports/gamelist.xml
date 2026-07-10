@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<gameList>
+	<game>
+		<path>./Lodor.sh</path>
+		<name>Lodor</name>
+		<desc>RomM save/state sync and library manager — pair your server, mirror your collection, and keep saves in sync from the couch.</desc>
+		<image>./images/lodor.png</image>
+		<thumbnail>./images/lodor.png</thumbnail>
+	</game>
+</gameList>
