@@ -15,6 +15,7 @@ if [ ! -f "$LIB" ]; then
 fi
 . "$LIB"
 lodor_export_env
+export LODOR_HOST_OS=knulli # the wizard's host-OS copy table (lodor#32)
 log "ports: Lodor.sh open"
 
 # Self-heal install state on every open (a fresh unzip can lose +x bits; the service may
