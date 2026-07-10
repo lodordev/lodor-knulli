@@ -11,6 +11,10 @@
 #
 #   leg 1: 0-byte stub + gameStart -> download attempted + failed HONESTLY (no network),
 #          rom NOT clobbered (still 0 bytes), no fake pending entry
+#   leg 1b: multi-disc incomplete .m3u (lodor#7 disc-1-first), OFFLINE -> with disc 1
+#          present the launch is NEVER gated (honest "discs present" log, no fetch, no
+#          fake disc bytes); with disc 1 MISSING the failure is honest + pipeline
+#          continues (exit 0)
 #   leg 2: real rom -> stub emulator writes a battery save -> gameStop (offline) queues
 #          the rom into pending-saves.txt, exactly once (dedup on re-run)
 #   leg 3: gamelist writer -> a planted FOREIGN <game> entry must survive
@@ -146,6 +150,42 @@ if [ -f "$PENDING" ] && grep -qF "$ROM1" "$PENDING"; then
 else
 	ok "no fake pending entry for a session with no save"
 fi
+
+echo ""
+echo "=== leg 1b: multi-disc incomplete .m3u (lodor#7 disc-1-first), OFFLINE ==="
+# (a) populated .m3u + disc 1 real + disc 2 stub -> the hook logs the honest offline
+#     skip (no cold bring-up) and NEVER blocks the launch: the game plays on disc 1.
+MD_DIR="$ROMS_DIR/psx/Chrono Cross (USA)"
+MD_M3U="$ROMS_DIR/psx/Chrono Cross (USA).m3u"
+mkdir -p "$MD_DIR"
+printf '%s\n%s\n' "Chrono Cross (USA)/Chrono Cross (USA) (Disc 1).chd" \
+	"Chrono Cross (USA)/Chrono Cross (USA) (Disc 2).chd" > "$MD_M3U"
+echo DISC1 > "$MD_DIR/Chrono Cross (USA) (Disc 1).chd"
+: > "$MD_DIR/Chrono Cross (USA) (Disc 2).chd"
+"$SB/emulatorlauncher" psx libretro pcsx_rearmed "$MD_M3U" > "$SB/leg1b.out" 2>&1
+grep -q "launching on the discs present" "$LOG" 2>/dev/null \
+	&& ok "incomplete m3u, offline: honest skip logged (no cold bring-up)" \
+	|| bad "missing 'launching on the discs present' log line"
+grep -q "\[stub emulator\] ran" "$SB/leg1b.out" \
+	&& ok "launch NOT gated on later discs (emulator ran on disc 1)" \
+	|| bad "launch blocked by an incomplete later disc"
+[ -s "$MD_DIR/Chrono Cross (USA) (Disc 2).chd" ] \
+	&& bad "disc 2 stub gained bytes offline (fake progress)" \
+	|| ok "disc 2 stub untouched offline"
+# (a2) leg (a)'s gameStop reconcile flipped the non-empty m3u to its ✓-marked name —
+#     that IS the product behavior (ES relaunches via the marked path the gamelist
+#     carries), so (b) must launch the flipped path, exactly like the real frontend.
+MD_M3U_FLIPPED="$ROMS_DIR/psx/✓ Chrono Cross (USA).m3u"
+[ -s "$MD_M3U_FLIPPED" ] \
+	&& ok "gameStop reconcile flipped the played m3u to ✓ (marker follows bytes)" \
+	|| bad "m3u not flipped to ✓ after a played session (reconcile regression)"
+# (b) disc 1 itself missing (0-byte) -> the fetch is attempted (no network here), the
+#     failure is logged honestly, and the pipeline still continues (hook exit 0).
+: > "$MD_DIR/Chrono Cross (USA) (Disc 1).chd"
+"$SB/emulatorlauncher" psx libretro pcsx_rearmed "$MD_M3U_FLIPPED" > "$SB/leg1c.out" 2>&1
+grep -q "next-disc fetch FAILED (disc 1 still missing)" "$LOG" 2>/dev/null \
+	&& ok "disc-1-missing: honest failure logged, pipeline not blocked" \
+	|| bad "missing disc-1-missing failure log line"
 
 echo ""
 echo "=== leg 2: real rom -> save written -> gameStop OFFLINE queues to pending ==="
