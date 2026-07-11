@@ -186,6 +186,25 @@ MD_M3U_FLIPPED="$ROMS_DIR/psx/✓ Chrono Cross (USA).m3u"
 grep -q "next-disc fetch FAILED (disc 1 still missing)" "$LOG" 2>/dev/null \
 	&& ok "disc-1-missing: honest failure logged, pipeline not blocked" \
 	|| bad "missing disc-1-missing failure log line"
+# (c) CRLF + comment .m3u, ALL discs present -> parses clean: NO phantom "incomplete",
+#     no fetch attempt at all, emulator just runs. Before the CR-strip fix every entry
+#     failed the [ -s ] check (trailing \r in the path) so complete games false-errored
+#     on every launch.
+MD2_DIR="$ROMS_DIR/psx/Wild Arms (USA)"
+MD2_M3U="$ROMS_DIR/psx/Wild Arms (USA).m3u"
+mkdir -p "$MD2_DIR"
+printf '#EXTM3U\r\n# burned on Windows\r\nWild Arms (USA)/Wild Arms (USA) (Disc 1).chd\r\nWild Arms (USA)/Wild Arms (USA) (Disc 2).chd\r\n' > "$MD2_M3U"
+echo DISC1 > "$MD2_DIR/Wild Arms (USA) (Disc 1).chd"
+echo DISC2 > "$MD2_DIR/Wild Arms (USA) (Disc 2).chd"
+_fetchlogs_before=$(grep -c "next-disc fetch" "$LOG" 2>/dev/null || echo 0)
+"$SB/emulatorlauncher" psx libretro pcsx_rearmed "$MD2_M3U" > "$SB/leg1d.out" 2>&1
+grep -q "\[stub emulator\] ran" "$SB/leg1d.out" \
+	&& ok "CRLF+comment m3u, complete set: emulator ran" \
+	|| bad "complete CRLF m3u blocked or errored the launch"
+_fetchlogs_after=$(grep -c "next-disc fetch" "$LOG" 2>/dev/null || echo 0)
+[ "$_fetchlogs_after" = "$_fetchlogs_before" ] \
+	&& ok "CRLF+comment m3u, complete set: no fetch attempted (parsed clean)" \
+	|| bad "complete CRLF m3u treated as incomplete (CR/comment parse regression)"
 
 echo ""
 echo "=== leg 2: real rom -> save written -> gameStop OFFLINE queues to pending ==="

@@ -177,9 +177,11 @@ if [ "$EVENT" = "gameStart" ]; then
 	# 0 (true) if the .m3u lists a disc whose file is missing or 0-byte (busybox-safe).
 	lodor_m3u_incomplete() {
 		_m="$1"; [ -f "$_m" ] || return 1
-		_dir=$(dirname "$_m"); _any=0
+		_dir=$(dirname "$_m"); _any=0; _CR=$(printf '\r')
 		while IFS= read -r _line || [ -n "$_line" ]; do
+			_line=${_line%"$_CR"}
 			[ -n "$_line" ] || continue
+			case "$_line" in \#*) continue ;; esac
 			_any=1
 			case "$_line" in
 				/*) _dp="$_line" ;;
@@ -193,9 +195,11 @@ if [ "$EVENT" = "gameStart" ]; then
 	# 0 (true) if the FIRST listed disc is missing/0-byte (empty list = broken).
 	lodor_m3u_first_missing() {
 		_m="$1"; [ -f "$_m" ] || return 0
-		_dir=$(dirname "$_m")
+		_dir=$(dirname "$_m"); _CR=$(printf '\r')
 		while IFS= read -r _line || [ -n "$_line" ]; do
+			_line=${_line%"$_CR"}
 			[ -n "$_line" ] || continue
+			case "$_line" in \#*) continue ;; esac
 			case "$_line" in
 				/*) _dp="$_line" ;;
 				*)  _dp="$_dir/$_line" ;;
