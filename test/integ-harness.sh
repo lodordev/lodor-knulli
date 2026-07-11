@@ -205,6 +205,26 @@ _fetchlogs_after=$(grep -c "next-disc fetch" "$LOG" 2>/dev/null || echo 0)
 [ "$_fetchlogs_after" = "$_fetchlogs_before" ] \
 	&& ok "CRLF+comment m3u, complete set: no fetch attempted (parsed clean)" \
 	|| bad "complete CRLF m3u treated as incomplete (CR/comment parse regression)"
+# (d) DOT-HIDDEN disc folder (lodor#7 UX fix): the engine now writes discs into
+#     ".<Game>/" with ".<Game>/…" m3u lines (the folder stays out of launchers' game
+#     lists). A complete dot-layout set must parse clean end-to-end — real-engine
+#     --check-rom census included — with no fetch attempt and a normal launch.
+MD3_DIR="$ROMS_DIR/psx/.Star Ocean 2 (USA)"
+MD3_M3U="$ROMS_DIR/psx/Star Ocean 2 (USA).m3u"
+mkdir -p "$MD3_DIR"
+printf '%s\n%s\n' ".Star Ocean 2 (USA)/Star Ocean 2 (USA) (Disc 1).chd" \
+	".Star Ocean 2 (USA)/Star Ocean 2 (USA) (Disc 2).chd" > "$MD3_M3U"
+echo DISC1 > "$MD3_DIR/Star Ocean 2 (USA) (Disc 1).chd"
+echo DISC2 > "$MD3_DIR/Star Ocean 2 (USA) (Disc 2).chd"
+_fetchlogs_before=$(grep -c "next-disc fetch" "$LOG" 2>/dev/null || echo 0)
+"$SB/emulatorlauncher" psx libretro pcsx_rearmed "$MD3_M3U" > "$SB/leg1e.out" 2>&1
+grep -q "\[stub emulator\] ran" "$SB/leg1e.out" \
+	&& ok "dot-hidden layout, complete set: emulator ran" \
+	|| bad "complete dot-layout m3u blocked or errored the launch"
+_fetchlogs_after=$(grep -c "next-disc fetch" "$LOG" 2>/dev/null || echo 0)
+[ "$_fetchlogs_after" = "$_fetchlogs_before" ] \
+	&& ok "dot-hidden layout, complete set: no fetch attempted (dot lines resolved)" \
+	|| bad "complete dot-layout m3u treated as incomplete (dot-line resolve regression)"
 
 echo ""
 echo "=== leg 2: real rom -> save written -> gameStop OFFLINE queues to pending ==="
